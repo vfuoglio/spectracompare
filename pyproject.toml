@@ -1,0 +1,24 @@
+[project]
+name = "spectracompare"
+version = "0.1.0"
+description = "SpectraCompare — MP3 audio quality analyzer and comparator."
+requires-python = ">=3.10"
+
+authors = [
+  { name = "${COPYRIGHT_NAME}" }
+]
+
+readme = "README.md"
+license = { text = "MIT" }
+
+dependencies = [
+  "numpy",
+  "librosa",
+  "matplotlib",
+  "mutagen",
+  "rich",
+  "pyloudnorm",
+]
+
+[project.scripts]
+spectra-compare = "spectracompare.main:main"
