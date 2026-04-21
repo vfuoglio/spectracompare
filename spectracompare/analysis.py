@@ -61,6 +61,34 @@ def score(stats: dict) -> float:
         (stats["lufs"] + 40) * 0.15
     )
 
+def degradation_index(stats: dict) -> float:
+    """
+    Lower = worse (more degraded)
+    Higher = better (less degraded)
+
+    Components:
+    - rolloff: upper frequency limit (higher = better)
+    - hf_energy: high-frequency content (higher = better)
+    - dynamic_range: more dynamic = better
+    - lufs: quieter files often retain more dynamic range, but we normalize it
+
+    We normalize each component to keep the scale stable.
+    """
+
+    # Normalize components
+    roll = stats["rolloff"] / 20000.0          # typical MP3 max ~20 kHz
+    hf = stats["hf_energy"] * 50.0             # HF energy is tiny, scale it up
+    dr = stats["dynamic_range"] / 20.0         # typical DR range ~0–20 dB
+    loud = (stats["lufs"] + 40) / 40.0         # LUFS normalized to 0–1 range
+
+    # Weighted sum
+    return (
+        roll * 0.40 +
+        hf * 0.25 +
+        dr * 0.25 +
+        loud * 0.10
+    )
+
 def estimate_real_bitrate(stats: dict) -> str:
     roll = stats["rolloff"]
     hf = stats["hf_energy"]

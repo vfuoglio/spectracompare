@@ -9,11 +9,10 @@ from datetime import datetime
 from rich.table import Table
 
 from .utils import console, get_bitrate
-from .analysis import analyze, score, estimate_real_bitrate, fake_320_detector
+from .analysis import analyze, score, degradation_index, estimate_real_bitrate, fake_320_detector
 from .plots import plot_spectrogram, plot_waveform_overlay
 from .matching import similarity_check_files
 from .batch import batch_compare_folders
-
 
 def compare_two_files(
     f1,
@@ -68,24 +67,36 @@ def compare_two_files(
     real1 = estimate_real_bitrate(s1)
     real2 = estimate_real_bitrate(s2)
 
+    # Compute degradation indices
+    deg1 = degradation_index(s1)
+    deg2 = degradation_index(s2)
+
     console.print("\n[bold yellow]=== QUALITY DECISION ===[/bold yellow]")
 
-    if real1 == real2:
+    # Show scores for transparency
+    console.print(f"[cyan]{f1}[/cyan] score: [bold]{score1:.4f}[/bold]")
+    console.print(f"[cyan]{f2}[/cyan] score: [bold]{score2:.4f}[/bold]")
+    console.print(f"[cyan]{f1}[/cyan] degradation index: [bold]{deg1:.4f}[/bold]")
+    console.print(f"[cyan]{f2}[/cyan] degradation index: [bold]{deg2:.4f}[/bold]\n")
+
+    # Threshold for "too close to call"
+    threshold = 0.03  # 3% difference
+
+    if abs(deg1 - deg2) < threshold:
         console.print(
-            f"[green]Both files contain similar audio quality ({real1}).[/green]\n"
-            "A detailed quality comparison is not meaningful because the spectral\n"
-            "content suggests they originate from the same bitrate level.\n"
+            "[yellow]Both files exhibit very similar degradation characteristics.[/yellow]\n"
+            "Differences are too small to confidently declare a higher‑quality version.\n"
         )
     else:
-        console.print(f"[cyan]{f1}[/cyan] score: [bold]{score1:.2f}[/bold]")
-        console.print(f"[cyan]{f2}[/cyan] score: [bold]{score2:.2f}[/bold]\n")
-
-        if score1 > score2:
-            console.print(f"[bold green]👉 {f1} appears to be higher quality.[/bold green]")
-        elif score2 > score1:
-            console.print(f"[bold green]👉 {f2} appears to be higher quality.[/bold green]")
+        if deg1 > deg2:
+            console.print(
+                f"[bold green]👉 {f1} appears to be higher quality (less degraded).[/bold green]"
+            )
         else:
-            console.print("[bold yellow]🤷 Both files appear similar in spectral quality.[/bold yellow]")
+            console.print(
+                f"[bold green]👉 {f2} appears to be higher quality (less degraded).[/bold green]"
+            )
+
 
     console.print("\n[bold magenta]=== Fake 320 kbps Detection ===[/bold magenta]")
     bitrate1 = get_bitrate(f1)
