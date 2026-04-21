@@ -1,6 +1,3 @@
-# Copyright (c) 2026 Valerio Fuoglio
-# Licensed under the MIT License.
-
 import os
 import sys
 import glob
@@ -11,7 +8,7 @@ from numpy.linalg import norm
 from rich.table import Table
 
 from .utils import console, get_bitrate
-from .analysis import analyze, score, estimate_real_bitrate, fake_320_detector
+from .analysis import analyze, score, estimate_real_bitrate, fake_320_detector, degradation_index
 from .matching import fingerprint_file_for_matching
 
 def find_mp3_files(folder):
@@ -34,12 +31,17 @@ def process_pair(args):
     fake1 = fake_320_detector(s1, bitrate1)
     fake2 = fake_320_detector(s2, bitrate2)
 
-    if real1 == real2:
-        summary = f"Similar quality ({real1})"
+    # NEW: degradation index
+    deg1 = degradation_index(s1)
+    deg2 = degradation_index(s2)
+
+    # NEW: quality decision using degradation index
+    if abs(deg1 - deg2) < 0.03:
+        summary = "Files have similar degradation levels"
     else:
         summary = (
             f"{os.path.basename(fa)} higher quality"
-            if score1 > score2
+            if deg1 > deg2
             else f"{os.path.basename(fb)} higher quality"
         )
 
@@ -51,6 +53,7 @@ def process_pair(args):
             "score": score1,
             "estimated_real_bitrate": real1,
             "fake_320_check": fake1,
+            "degradation_index": deg1,   # NEW
         },
         "fileB": {
             "path": fb,
@@ -59,6 +62,7 @@ def process_pair(args):
             "score": score2,
             "estimated_real_bitrate": real2,
             "fake_320_check": fake2,
+            "degradation_index": deg2,   # NEW
         },
         "similarity": sim,
         "summary_note": summary,
@@ -157,6 +161,10 @@ def batch_compare_folders(dir1, dir2, json_out=None, with_spectrogram=False, wit
         console.print("[bold yellow]Quality summary for this pair:[/bold yellow]")
         console.print(pair["summary_note"])
 
+        console.print("[bold magenta]Degradation Index:[/bold magenta]")
+        console.print(f"{fa}: {pair['fileA']['degradation_index']:.4f}")
+        console.print(f"{fb}: {pair['fileB']['degradation_index']:.4f}")
+
         console.print("[bold magenta]Fake 320 kbps Detection for this pair:[/bold magenta]")
         console.print(f"{fa}: {pair['fileA']['fake_320_check']}")
         console.print(f"{fb}: {pair['fileB']['fake_320_check']}")
@@ -171,6 +179,8 @@ def batch_compare_folders(dir1, dir2, json_out=None, with_spectrogram=False, wit
     summary.add_column("Similarity")
     summary.add_column("Real BR A")
     summary.add_column("Real BR B")
+    summary.add_column("Deg. A")   # NEW
+    summary.add_column("Deg. B")   # NEW
     summary.add_column("Summary")
 
     for idx, (match, pair) in enumerate(zip(matches, ordered), 1):
@@ -182,6 +192,8 @@ def batch_compare_folders(dir1, dir2, json_out=None, with_spectrogram=False, wit
             f"{sim:.3f}",
             pair["fileA"]["estimated_real_bitrate"],
             pair["fileB"]["estimated_real_bitrate"],
+            f"{pair['fileA']['degradation_index']:.4f}",   # NEW
+            f"{pair['fileB']['degradation_index']:.4f}",   # NEW
             pair["summary_note"],
         )
 
